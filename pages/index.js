@@ -1,8 +1,10 @@
-import Head from 'next/head'
-import Image from 'next/image'
-import styles from '../styles/Home.module.css'
+import Head from 'next/head';
+import Image from 'next/image';
+import styles from '../styles/Home.module.css';
+const fs = require('fs');
+const Canvas = require('canvas');
 
-export default function Home() {
+export default function Home({img}) {
   return (
     <div className={styles.container}>
       <Head>
@@ -16,54 +18,105 @@ export default function Home() {
           Welcome to <a href="https://nextjs.org">Next.js!</a>
         </h1>
 
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h2>Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h2>Learn &rarr;</h2>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className={styles.card}
-          >
-            <h2>Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
+        <div>
+          <img src={img} className={styles.px} />
         </div>
       </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
-        </a>
-      </footer>
     </div>
-  )
+  );
+}
+
+export async function getServerSideProps() {
+  function rndIncl(min, max) { // min and max included
+    return Math.floor((Math.random() * (max - min + 1)) + min);
+  }  
+  const builtCombos = {};
+  const bodyDir = 'body';
+  const dirBase = '../notfromterra-js13k2021/design/layers';
+  const attrFiles = {
+    eyes: fs.readdirSync(`${dirBase}/eyes`),
+    face: fs.readdirSync(`${dirBase}/face`),
+    feet: fs.readdirSync(`${dirBase}/feet`),
+    hair: fs.readdirSync(`${dirBase}/hair`),
+    mouth: fs.readdirSync(`${dirBase}/mouth`),
+  };
+  const img = new Canvas.Image();
+  const canvas = Canvas.createCanvas(24, 24);
+  const ctx = canvas.getContext('2d');
+
+  // Draw the outline:
+  img.src = `${dirBase}/outline.png`;
+  ctx.drawImage(img, 0, 0);
+
+  const getBody = () => {
+    const base = `${dirBase}/${bodyDir}`;
+    const bodies = fs.readdirSync(base);
+    const i = new Canvas.Image();
+    const idx = rndIncl(0, bodies.length - 1);
+
+    i.src = `${base}/${bodies[idx]}`;
+
+    return { idx: 0, img: i};
+  };
+
+  const getAttr = (attr) => {
+    const base = `${dirBase}/${attr}`;
+    const attrFiles = fs.readdirSync(base);
+    const fileIdx = rndIncl(0, attrFiles.length);
+
+    return fileIdx
+  };
+
+  const getRandomTribble = async () => {
+    const { idx, img } = getBody();
+    ctx.drawImage(img, 0, 0);
+
+    const attrIndexes = [];
+
+    Object.entries(attrFiles).forEach(([k, v]) => {
+      attrIndexes.push(getAttr(k))
+    })
+
+    const combo = attrIndexes.join('-')
+
+    console.log(combo)
+
+    if (!builtCombos[combo]) {
+      const promises = []
+
+      console.log(attrIndexes, attrFiles)
+
+      builtCombos[combo] = true
+
+      attrIndexes.forEach((index, i) => {
+        const attrArrays = Object.entries(attrFiles)
+
+        if (index <= attrArrays[i][1].length - 1) {
+          console.log(attrArrays[i][1][index])
+          promises.push(Canvas.loadImage(`${dirBase}/${attrArrays[i][0]}/${attrArrays[i][1][index]}`))
+        }
+      })
+
+      return Promise.all(promises)
+    }
+    else {
+      console.log('FAILED - combo already seen')
+    }
+  };
+
+  const layerImages = await getRandomTribble();
+
+  layerImages.forEach(image => {
+    ctx.drawImage(image, 0, 0)
+  })
+
+  const final = canvas.toDataURL();
+
+  console.log(final);
+
+  return {
+    props: {
+      img: final,
+    },
+  };
 }
