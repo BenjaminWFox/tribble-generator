@@ -4,6 +4,8 @@ import styles from '../styles/Home.module.css';
 const fs = require('fs');
 const Canvas = require('canvas');
 
+// renamer function: renamer --find '/_.*.png$/' --replace '.png' ./240/**/*
+
 export default function Home({img}) {
   return (
     <div className={styles.container}>
